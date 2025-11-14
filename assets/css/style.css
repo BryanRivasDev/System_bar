@@ -1,0 +1,187 @@
+:root {
+  --ui-font: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial;
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-primary: #4f46e5; /* indigo */
+  --color-primary-600: #4338ca;
+  --color-accent: #06b6d4; /* teal */
+  --color-muted: #6b7280;
+  --color-text: #0f172a;
+  --radius: 10px;
+  --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+html,
+body {
+  height: 100%;
+}
+body {
+  font-family: var(--ui-font);
+  font-size: 0.95rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Navbar: light variant with blue accents to match dashboard */
+.navbar-custom {
+  background: #ffffff !important;
+  color: var(--color-primary) !important;
+  position: relative;
+  z-index: 9999; /* ensure navbar appears above page content */
+  padding: 0.5rem 1rem;
+  box-shadow: 0 1px 0 rgba(2, 6, 23, 0.04) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+.navbar-custom .nav-link {
+  color: var(--color-primary) !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+  -webkit-text-fill-color: var(--color-primary) !important;
+  opacity: 1 !important;
+}
+.navbar-custom .nav-link.active,
+.navbar-custom .nav-link:hover {
+  color: var(--color-primary-600) !important;
+  background: rgba(79, 70, 229, 0.06);
+  border-radius: 6px;
+}
+.navbar-custom .navbar-brand {
+  font-weight: 800 !important;
+  color: var(--color-primary) !important;
+  -webkit-text-fill-color: var(--color-primary) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+.navbar-custom .nav-link i {
+  color: var(--color-primary) !important;
+  opacity: 1 !important;
+}
+
+/* Ensure small/text-muted inside navbar is visible and subtle */
+.navbar-custom .text-muted,
+.navbar-custom small {
+  color: var(--color-muted) !important;
+  opacity: 0.9 !important;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary-600);
+  box-shadow: none;
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--color-primary-600);
+  border-color: var(--color-primary-600);
+}
+.btn-outline-secondary {
+  color: var(--color-muted);
+  border-color: rgba(15, 23, 42, 0.06);
+}
+
+/* Cards */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  border: none;
+}
+
+/* Tables */
+.table thead th {
+  border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+/* Avatar */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-accent)
+  );
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.08);
+}
+
+/* Forms */
+.form-control:focus {
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.08);
+  border-color: var(--color-primary-600);
+}
+
+/* Sidebar */
+.sidebar {
+  background: transparent;
+}
+.sidebar .nav-link {
+  color: var(--color-muted);
+}
+.sidebar .nav-link.active {
+  color: var(--color-primary);
+}
+
+/* Utilities */
+.report-card .rounded-circle {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+.report-export-btn {
+  margin-right: 0.4rem;
+}
+
+/* Responsive tweaks */
+@media (max-width: 991.98px) {
+  .navbar-custom .d-lg-inline {
+    display: none !important;
+  }
+}
+
+/* Small spacing defaults */
+main {
+  padding-top: 0; /* removed extra gap so header sits directly under navbar */
+}
+
+/* Ensure first section under navbar has no top gap */
+.navbar-custom + main,
+.navbar-custom + main .dashboard-header,
+.dashboard-header {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Remove any bottom margin from navbar that could push content */
+.navbar-custom {
+  margin-bottom: 0 !important;
+}
+
+/* Keep some legacy classes compatibility */
+.product-card {
+  transition: transform 0.18s;
+  cursor: pointer;
+}
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.06);
+}
+.mesa-btn {
+  height: 64px;
+}
+.report-card .btn {
+  min-width: 64px;
+}
+
+/* Footer scripts placeholder spacing */
+.footer-scripts {
+  margin-top: 24px;
+}
