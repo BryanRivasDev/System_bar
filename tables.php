@@ -39,6 +39,7 @@ $tables = $stmt->fetchAll();
         <div class="sidebar-header">
             <h2>🍹 Bar System</h2>
         </div>
+        
         <ul class="sidebar-menu">
             <li><a href="dashboard.php">📊 Dashboard</a></li>
             <li><a href="products.php">📦 Productos</a></li>
@@ -49,7 +50,7 @@ $tables = $stmt->fetchAll();
             <li><a href="reports.php">📈 Reportes</a></li>
             <li><a href="users.php">👥 Usuarios</a></li>
             <li><a href="settings.php">⚙️ Configuración</a></li>
-            <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
+            <li><a href="logout.php" class="logout-link">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>
     <?php endif; ?>
@@ -63,13 +64,30 @@ $tables = $stmt->fetchAll();
             </div>
             <div class="waiter-nav-buttons">
                 <a href="tables.php" class="nav-btn active"><span>🪑</span> Mesas</a>
+                <div class="user-profile-nav">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role">Mesero</span>
+                </div>
                 <a href="logout.php" class="nav-btn logout-btn"><span>🚪</span> Cerrar Sesión</a>
             </div>
         </div>
         <?php endif; ?>
         <div class="page-header">
-            <h1>Gestión de Mesas</h1>
-            <p>Vista y estado de las mesas del bar</p>
+            <div>
+                <h1>Gestión de Mesas</h1>
+                <p>Vista y estado de las mesas del bar</p>
+            </div>
+            <?php if ($_SESSION['role_id'] != 2): ?>
+            <div class="user-profile-header">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
+                </div>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role">Administrador</span>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
         
         <?php if (isset($_GET['success']) && $_GET['success'] === 'payment_completed'): ?>
@@ -80,7 +98,12 @@ $tables = $stmt->fetchAll();
         
         <?php if (!$active_register): ?>
             <div class="alert alert-warning">
-                ⚠️ Debe abrir la caja antes de tomar pedidos. <a href="cash_register.php" style="color: var(--primary); font-weight: 600;">Ir a Caja</a>
+                ⚠️ Debe abrir la caja antes de tomar pedidos. 
+                <?php if ($_SESSION['role_id'] == 1): ?>
+                    <a href="cash_register.php" style="color: var(--primary); font-weight: 600;">Ir a Caja</a>
+                <?php else: ?>
+                    <span style="font-weight: 600;">Contacte al Cajero o Administrador.</span>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
         

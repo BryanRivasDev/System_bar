@@ -55,7 +55,7 @@ $pending_orders = $stmt->fetchAll();
             <li><a href="reports.php">📈 Reportes</a></li>
             <li><a href="users.php">👥 Usuarios</a></li>
             <li><a href="settings.php">⚙️ Configuración</a></li>
-            <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
+            <li><a href="logout.php" class="logout-link">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>
     <?php endif; ?>
@@ -66,7 +66,16 @@ $pending_orders = $stmt->fetchAll();
                 <h1>Vista de Cocina</h1>
                 <p>Pedidos pendientes de preparación</p>
             </div>
-            <div style="display: flex; gap: 15px;">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div class="user-profile-header" style="margin-right: 20px;">
+                    <div class="user-avatar">
+                        <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                        <span class="user-role">Cocina</span>
+                    </div>
+                </div>
                 <button onclick="location.reload()" class="btn btn-primary">🔄 Actualizar</button>
                 <a href="logout.php" class="btn btn-danger">🚪 Cerrar Sesión</a>
             </div>
@@ -107,7 +116,7 @@ $pending_orders = $stmt->fetchAll();
                         <form method="POST" style="padding: 15px;">
                             <input type="hidden" name="complete_order" value="1">
                             <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
-                            <button type="submit" class="btn btn-success btn-block" onclick="return confirm('¿Marcar este pedido como listo?')">
+                            <button type="submit" class="btn btn-success btn-block">
                                 ✅ Pedido Listo
                             </button>
                         </form>

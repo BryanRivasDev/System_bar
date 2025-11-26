@@ -24,9 +24,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
                 $role_id = $_POST['role_id'];
                 
-                $stmt = $pdo->prepare('INSERT INTO users (name, email, username, password, role_id, status) VALUES (?, ?, ?, ?, ?, "active")');
-                $stmt->execute([$name, $email, $username, $password, $role_id]);
-                $success = 'Usuario creado exitosamente';
+                try {
+                    $stmt = $pdo->prepare('INSERT INTO users (name, email, username, password, role_id, status) VALUES (?, ?, ?, ?, ?, "active")');
+                    $stmt->execute([$name, $email, $username, $password, $role_id]);
+                    $success = 'Usuario creado exitosamente';
+                } catch (PDOException $e) {
+                    if ($e->getCode() == 23000) {
+                        $error = 'Error: El email o nombre de usuario ya existe en el sistema.';
+                    } else {
+                        $error = 'Error al crear usuario: ' . $e->getMessage();
+                    }
+                }
                 break;
                 
             case 'update':
@@ -52,9 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'delete':
                 $user_id = $_POST['user_id'];
-                $stmt = $pdo->prepare('UPDATE users SET status = "inactive" WHERE id = ?');
+                // Permanently delete the user
+                $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
                 $stmt->execute([$user_id]);
-                $success = 'Usuario desactivado exitosamente';
+                $success = 'Usuario eliminado exitosamente';
                 break;
                 
             case 'create_role':
@@ -254,8 +263,8 @@ $roles = $pdo->query('SELECT * FROM roles ORDER BY name')->fetchAll();
                                             Reset Pass
                                         </button>
                                         <?php if ($user['id'] != $_SESSION['user_id']): ?>
-                                            <button class="btn btn-sm btn-danger" onclick="deactivateUser(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username']) ?>')">
-                                                Desactivar
+                                            <button class="btn btn-sm btn-danger" onclick="deleteUser(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username']) ?>')">
+                                                Eliminar
                                             </button>
                                         <?php endif; ?>
                                     <?php endif; ?>
@@ -565,8 +574,8 @@ function resetPassword(userId, username) {
     document.getElementById('resetModal').style.display = 'block';
 }
 
-function deactivateUser(userId, username) {
-    if (confirm(`¿Está seguro de desactivar al usuario "${username}"?`)) {
+function deleteUser(userId, username) {
+    if (confirm(`¿Está seguro de eliminar permanentemente al usuario "${username}"? Esta acción no se puede deshacer.`)) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.innerHTML = `

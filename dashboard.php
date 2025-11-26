@@ -18,51 +18,67 @@ if ($_SESSION['role_id'] == 4) {
     exit();
 }
 
-// Get today's statistics
-$today = date('Y-m-d');
+// Get active register (system-wide)
+$stmt = $pdo->query('SELECT * FROM cash_register WHERE status = "active" ORDER BY id DESC LIMIT 1');
+$active_register = $stmt->fetch();
 
-// Total sales today
-$stmt = $pdo->prepare('SELECT SUM(total) as total_sales, COUNT(*) as total_orders FROM orders WHERE DATE(date_created) = ? AND status = "completed"');
-$stmt->execute([$today]);
-$sales_data = $stmt->fetch();
-$total_sales = $sales_data['total_sales'] ?? 0;
-$total_orders = $sales_data['total_orders'] ?? 0;
+// Initialize variables
+$total_sales = 0;
+$total_orders = 0;
+$top_products = [];
+$category_sales = [];
 
-// Pending orders
+if ($active_register) {
+    // Total sales (since register opened)
+    $stmt = $pdo->prepare('
+        SELECT SUM(p.amount) as total_sales, COUNT(DISTINCT o.id) as total_orders 
+        FROM payments p
+        JOIN orders o ON p.order_id = o.id
+        WHERE p.date_created >= ?
+    ');
+    $stmt->execute([$active_register['date_created']]);
+    $sales_data = $stmt->fetch();
+    $total_sales = $sales_data['total_sales'] ?? 0;
+    $total_orders = $sales_data['total_orders'] ?? 0;
+
+    // Top 5 products (since register opened)
+    $stmt = $pdo->prepare('
+        SELECT p.name, SUM(od.quantity) as quantity, SUM(od.quantity * od.price) as total
+        FROM order_details od
+        JOIN products p ON od.product_id = p.id
+        JOIN orders o ON od.order_id = o.id
+        JOIN payments pay ON o.id = pay.order_id
+        WHERE pay.date_created >= ?
+        GROUP BY p.id
+        ORDER BY total DESC
+        LIMIT 5
+    ');
+    $stmt->execute([$active_register['date_created']]);
+    $top_products = $stmt->fetchAll();
+
+    // Sales by category (since register opened)
+    $stmt = $pdo->prepare('
+        SELECT c.name, SUM(od.quantity * od.price) as total
+        FROM order_details od
+        JOIN products p ON od.product_id = p.id
+        JOIN categories c ON p.category_id = c.id
+        JOIN orders o ON od.order_id = o.id
+        JOIN payments pay ON o.id = pay.order_id
+        WHERE pay.date_created >= ?
+        GROUP BY c.id
+        ORDER BY total DESC
+    ');
+    $stmt->execute([$active_register['date_created']]);
+    $category_sales = $stmt->fetchAll();
+}
+
+// Pending orders (always show pending regardless of register status)
 $stmt = $pdo->query('SELECT COUNT(*) as pending FROM orders WHERE status = "pending"');
 $pending_orders = $stmt->fetch()['pending'] ?? 0;
 
-// Active tables
+// Active tables (always show active tables)
 $stmt = $pdo->query('SELECT COUNT(*) as active FROM tables WHERE status = "occupied"');
 $active_tables = $stmt->fetch()['active'] ?? 0;
-
-// Top 5 products today
-$stmt = $pdo->prepare('
-    SELECT p.name, SUM(od.quantity) as quantity, SUM(od.quantity * od.price) as total
-    FROM order_details od
-    JOIN products p ON od.product_id = p.id
-    JOIN orders o ON od.order_id = o.id
-    WHERE DATE(o.date_created) = ? AND o.status = "completed"
-    GROUP BY p.id
-    ORDER BY total DESC
-    LIMIT 5
-');
-$stmt->execute([$today]);
-$top_products = $stmt->fetchAll();
-
-// Sales by category
-$stmt = $pdo->prepare('
-    SELECT c.name, SUM(od.quantity * od.price) as total
-    FROM order_details od
-    JOIN products p ON od.product_id = p.id
-    JOIN categories c ON p.category_id = c.id
-    JOIN orders o ON od.order_id = o.id
-    WHERE DATE(o.date_created) = ? AND o.status = "completed"
-    GROUP BY c.id
-    ORDER BY total DESC
-');
-$stmt->execute([$today]);
-$category_sales = $stmt->fetchAll();
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -71,6 +87,7 @@ $category_sales = $stmt->fetchAll();
         <div class="sidebar-header">
             <h2>🍹 Bar System</h2>
         </div>
+        
         <ul class="sidebar-menu">
             <li><a href="dashboard.php" class="active">📊 Dashboard</a></li>
             <li><a href="products.php">📦 Productos</a></li>
@@ -81,14 +98,25 @@ $category_sales = $stmt->fetchAll();
             <li><a href="reports.php">📈 Reportes</a></li>
             <li><a href="users.php">👥 Usuarios</a></li>
             <li><a href="settings.php">⚙️ Configuración</a></li>
-            <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
+            <li><a href="logout.php" class="logout-link">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>
     
     <main class="main-content">
         <div class="page-header">
-            <h1>Dashboard</h1>
-            <p>Resumen de actividad del día - <?= date('d/m/Y') ?></p>
+            <div>
+                <h1>Dashboard</h1>
+                <p>Resumen de actividad del día - <?= date('d/m/Y') ?></p>
+            </div>
+            <div class="user-profile-header">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
+                </div>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role"><?= $_SESSION['role_id'] == 1 ? 'Administrador' : 'Usuario' ?></span>
+                </div>
+            </div>
         </div>
         
         <!-- Stats Cards -->

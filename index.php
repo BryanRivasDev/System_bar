@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     
     if ($username && $password) {
-        $stmt = $pdo->prepare('SELECT id, password, name, role_id FROM users WHERE username = :username AND status = "active"');
+        $stmt = $pdo->prepare('SELECT id, password, name, role_id, is_super_admin FROM users WHERE username = :username AND status = "active"');
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch();
         
@@ -22,11 +22,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['username']  = $username;
             $_SESSION['name']      = $user['name'];
             $_SESSION['role_id']   = $user['role_id'];
+            $_SESSION['is_super_admin'] = $user['is_super_admin'];
             
             // Redirect based on role
             if ($user['role_id'] == 4) {
                 // Kitchen user goes directly to kitchen
                 header('Location: kitchen.php');
+            } elseif ($user['role_id'] == 3) {
+                // Cashier goes to cashier dashboard
+                header('Location: cashier_dashboard.php');
             } elseif ($user['role_id'] == 2) {
                 // Waiter goes to tables
                 header('Location: tables.php');

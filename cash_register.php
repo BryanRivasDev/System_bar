@@ -39,9 +39,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get active register
-$stmt = $pdo->prepare('SELECT * FROM cash_register WHERE user_id = ? AND type = "open" AND status = "active" ORDER BY date_created DESC LIMIT 1');
-$stmt->execute([$_SESSION['user_id']]);
-$active_register = $stmt->fetch();
+if (isset($_SESSION['is_super_admin']) && $_SESSION['is_super_admin'] == 1) {
+    // Super Admin sees ANY active register
+    $stmt = $pdo->query('SELECT cr.*, u.name as user_name FROM cash_register cr JOIN users u ON cr.user_id = u.id WHERE cr.status = "active" ORDER BY cr.id DESC LIMIT 1');
+    $active_register = $stmt->fetch();
+} else {
+    // Regular users see only THEIR active register
+    $stmt = $pdo->prepare('SELECT cr.*, u.name as user_name FROM cash_register cr JOIN users u ON cr.user_id = u.id WHERE cr.user_id = ? AND cr.status = "active" ORDER BY cr.id DESC LIMIT 1');
+    $stmt->execute([$_SESSION['user_id']]);
+    $active_register = $stmt->fetch();
+}
 
 // Get today's sales data
 $today_sales = 0;
@@ -49,46 +56,39 @@ $sales_by_table = [];
 $payment_breakdown = ['cash' => 0, 'card' => 0, 'transfer' => 0];
 
 if ($active_register) {
-    $register_date = date('Y-m-d', strtotime($active_register['date_created']));
-    
-    // Total sales
+    // Total sales (from the moment the register was opened)
     $stmt = $pdo->prepare('
-        SELECT SUM(total) as total 
-        FROM orders 
-        WHERE user_id = ? 
-        AND DATE(date_created) = ? 
-        AND status = "completed"
+        SELECT SUM(p.amount) as total 
+        FROM payments p
+        WHERE p.date_created >= ?
     ');
-    $stmt->execute([$_SESSION['user_id'], $register_date]);
+    $stmt->execute([$active_register['date_created']]);
     $result = $stmt->fetch();
     $today_sales = $result['total'] ?? 0;
     
     // Sales by table
     $stmt = $pdo->prepare('
         SELECT t.name as table_name, 
-               COUNT(o.id) as order_count,
-               SUM(o.total) as table_total
-        FROM orders o
+               COUNT(DISTINCT o.id) as order_count,
+               SUM(p.amount) as table_total
+        FROM payments p
+        JOIN orders o ON p.order_id = o.id
         JOIN tables t ON o.table_id = t.id
-        WHERE o.user_id = ? 
-        AND DATE(o.date_created) = ? 
-        AND o.status = "completed"
+        WHERE p.date_created >= ?
         GROUP BY t.id
         ORDER BY table_total DESC
     ');
-    $stmt->execute([$_SESSION['user_id'], $register_date]);
+    $stmt->execute([$active_register['date_created']]);
     $sales_by_table = $stmt->fetchAll();
     
     // Payment method breakdown
     $stmt = $pdo->prepare('
-        SELECT p.method, SUM(p.amount) as total
-        FROM payments p
-        JOIN orders o ON p.order_id = o.id
-        WHERE o.user_id = ? 
-        AND DATE(p.date_created) = ?
-        GROUP BY p.method
+        SELECT method, SUM(amount) as total
+        FROM payments
+        WHERE date_created >= ?
+        GROUP BY method
     ');
-    $stmt->execute([$_SESSION['user_id'], $register_date]);
+    $stmt->execute([$active_register['date_created']]);
     $payments = $stmt->fetchAll();
     
     foreach ($payments as $payment) {
