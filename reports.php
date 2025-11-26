@@ -7,53 +7,87 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Get date range
+// Get report type and date range
+$report_type = $_GET['type'] ?? 'sales';
 $start_date = $_GET['start_date'] ?? date('Y-m-01');
 $end_date = $_GET['end_date'] ?? date('Y-m-d');
 
-// Sales report
-$stmt = $pdo->prepare('
-    SELECT DATE(date_created) as date, COUNT(*) as orders, SUM(total) as total
-    FROM orders
-    WHERE DATE(date_created) BETWEEN ? AND ? AND status = "completed"
-    GROUP BY DATE(date_created)
-    ORDER BY date DESC
-');
-$stmt->execute([$start_date, $end_date]);
-$sales_by_date = $stmt->fetchAll();
+// Logic based on report type
+if ($report_type === 'sales') {
+    // Sales report logic (Existing)
+    $stmt = $pdo->prepare('
+        SELECT DATE(date_created) as date, COUNT(*) as orders, SUM(total) as total
+        FROM orders
+        WHERE DATE(date_created) BETWEEN ? AND ? AND status = "completed"
+        GROUP BY DATE(date_created)
+        ORDER BY date DESC
+    ');
+    $stmt->execute([$start_date, $end_date]);
+    $sales_by_date = $stmt->fetchAll();
 
-// Total sales
-$stmt = $pdo->prepare('SELECT SUM(total) as total FROM orders WHERE DATE(date_created) BETWEEN ? AND ? AND status = "completed"');
-$stmt->execute([$start_date, $end_date]);
-$total_sales = $stmt->fetch()['total'] ?? 0;
+    $stmt = $pdo->prepare('SELECT SUM(total) as total FROM orders WHERE DATE(date_created) BETWEEN ? AND ? AND status = "completed"');
+    $stmt->execute([$start_date, $end_date]);
+    $total_sales = $stmt->fetch()['total'] ?? 0;
 
-// Top products
-$stmt = $pdo->prepare('
-    SELECT p.name, SUM(od.quantity) as quantity, SUM(od.quantity * od.price) as total
-    FROM order_details od
-    JOIN products p ON od.product_id = p.id
-    JOIN orders o ON od.order_id = o.id
-    WHERE DATE(o.date_created) BETWEEN ? AND ? AND o.status = "completed"
-    GROUP BY p.id
-    ORDER BY total DESC
-    LIMIT 10
-');
-$stmt->execute([$start_date, $end_date]);
-$top_products = $stmt->fetchAll();
+    $stmt = $pdo->prepare('
+        SELECT p.name, SUM(od.quantity) as quantity, SUM(od.quantity * od.price) as total
+        FROM order_details od
+        JOIN products p ON od.product_id = p.id
+        JOIN orders o ON od.order_id = o.id
+        WHERE DATE(o.date_created) BETWEEN ? AND ? AND o.status = "completed"
+        GROUP BY p.id
+        ORDER BY total DESC
+        LIMIT 10
+    ');
+    $stmt->execute([$start_date, $end_date]);
+    $top_products = $stmt->fetchAll();
 
-// Payment methods
-$stmt = $pdo->prepare('
-    SELECT method, COUNT(*) as count, SUM(amount) as total
-    FROM payments p
-    JOIN orders o ON p.order_id = o.id
-    WHERE DATE(p.date_created) BETWEEN ? AND ?
-    GROUP BY method
-');
-$stmt->execute([$start_date, $end_date]);
-$payment_methods = $stmt->fetchAll();
+    $stmt = $pdo->prepare('
+        SELECT method, COUNT(*) as count, SUM(amount) as total
+        FROM payments p
+        JOIN orders o ON p.order_id = o.id
+        WHERE DATE(p.date_created) BETWEEN ? AND ?
+        GROUP BY method
+    ');
+    $stmt->execute([$start_date, $end_date]);
+    $payment_methods = $stmt->fetchAll();
 
-// Low stock products
-$low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "active" ORDER BY stock ASC')->fetchAll();
+} elseif ($report_type === 'inventory') {
+    // Inventory report logic (New)
+    $stmt = $pdo->query('
+        SELECT p.*, c.name as category_name, (p.stock * p.price) as total_value
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.status = "active"
+        ORDER BY p.stock ASC
+    ');
+    $inventory = $stmt->fetchAll();
+    
+    $total_inventory_value = 0;
+    $total_items = 0;
+    foreach ($inventory as $item) {
+        $total_inventory_value += $item['total_value'];
+        $total_items += $item['stock'];
+    }
+
+} elseif ($report_type === 'waiters') {
+    // Waiters report logic (New)
+    $stmt = $pdo->prepare('
+        SELECT u.name, 
+               COUNT(o.id) as total_orders, 
+               COALESCE(SUM(o.total), 0) as total_sales
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id 
+            AND o.status = "completed" 
+            AND DATE(o.date_created) BETWEEN ? AND ?
+        WHERE u.role_id = 2 -- Waiter role
+        GROUP BY u.id
+        ORDER BY total_sales DESC
+    ');
+    $stmt->execute([$start_date, $end_date]);
+    $waiters_stats = $stmt->fetchAll();
+}
+
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -79,15 +113,24 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
     <main class="main-content">
         <div class="page-header">
             <h1>Reportes</h1>
-            <p>Análisis de ventas e inventario</p>
+            <p>Análisis y estadísticas del sistema</p>
+        </div>
+
+        <!-- Report Navigation Tabs -->
+        <div class="report-tabs">
+            <a href="?type=sales&start_date=<?= $start_date ?>&end_date=<?= $end_date ?>" class="tab-btn <?= $report_type === 'sales' ? 'active' : '' ?>">📊 Ventas</a>
+            <a href="?type=inventory" class="tab-btn <?= $report_type === 'inventory' ? 'active' : '' ?>">📦 Inventario</a>
+            <a href="?type=waiters&start_date=<?= $start_date ?>&end_date=<?= $end_date ?>" class="tab-btn <?= $report_type === 'waiters' ? 'active' : '' ?>">👥 Meseros</a>
         </div>
         
-        <!-- Date Filter -->
+        <!-- Date Filter (Only for Sales and Waiters) -->
+        <?php if ($report_type !== 'inventory'): ?>
         <div class="card no-print">
             <div class="card-header">
                 <h3>Filtrar por Fecha</h3>
             </div>
             <form method="GET" style="padding: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                <input type="hidden" name="type" value="<?= $report_type ?>">
                 <div class="form-group">
                     <label>Fecha Inicio</label>
                     <input type="date" name="start_date" class="form-control" value="<?= $start_date ?>">
@@ -100,140 +143,142 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
                     <label style="visibility: hidden;">Acciones</label>
                     <div style="display: flex; gap: 10px;">
                         <button type="submit" class="btn btn-primary">Filtrar</button>
-                        <a href="report_print.php?start_date=<?= $start_date ?>&end_date=<?= $end_date ?>" target="_blank" class="btn btn-secondary"><span>🖨️</span> PDF</a>
-                        <a href="export_report.php?start_date=<?= $start_date ?>&end_date=<?= $end_date ?>" class="btn btn-success"><span>📊</span> Excel</a>
+                        <button type="button" onclick="window.print()" class="btn btn-secondary"><span>🖨️</span> Imprimir</button>
                     </div>
                 </div>
             </form>
         </div>
-        
-        <!-- Summary Cards -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon" style="background: var(--success);">💰</div>
-                <div class="stat-info">
-                    <div class="stat-label">Ventas Totales</div>
-                    <div class="stat-value">C$<?= number_format($total_sales, 2) ?></div>
+        <?php endif; ?>
+
+        <!-- SALES REPORT -->
+        <?php if ($report_type === 'sales'): ?>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--success);">💰</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Ventas Totales</div>
+                        <div class="stat-value">C$<?= number_format($total_sales, 2) ?></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--primary);">📦</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Productos Top</div>
+                        <div class="stat-value"><?= count($top_products) ?></div>
+                    </div>
                 </div>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon" style="background: var(--primary);">📦</div>
-                <div class="stat-info">
-                    <div class="stat-label">Productos Vendidos</div>
-                    <div class="stat-value"><?= count($top_products) ?></div>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon" style="background: var(--danger);">⚠️</div>
-                <div class="stat-info">
-                    <div class="stat-label">Stock Bajo</div>
-                    <div class="stat-value"><?= count($low_stock) ?></div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Sales by Date -->
-        <div class="card">
-            <div class="card-header">
-                <h3>Ventas por Día</h3>
-            </div>
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Pedidos</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($sales_by_date as $sale): ?>
-                            <tr>
-                                <td><?= date('d/m/Y', strtotime($sale['date'])) ?></td>
-                                <td><?= $sale['orders'] ?></td>
-                                <td>C$<?= number_format($sale['total'], 2) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <div class="reports-grid">
-            <!-- Top Products -->
-            <div class="card">
-                <div class="card-header">
-                    <h3>Productos Más Vendidos</h3>
-                </div>
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th>Cantidad</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($top_products as $product): ?>
+
+            <div class="reports-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Ventas por Día</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td><?= htmlspecialchars($product['name']) ?></td>
-                                    <td><?= $product['quantity'] ?></td>
-                                    <td>C$<?= number_format($product['total'], 2) ?></td>
+                                    <th>Fecha</th>
+                                    <th>Pedidos</th>
+                                    <th>Total</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($sales_by_date as $sale): ?>
+                                    <tr>
+                                        <td><?= date('d/m/Y', strtotime($sale['date'])) ?></td>
+                                        <td><?= $sale['orders'] ?></td>
+                                        <td>C$<?= number_format($sale['total'], 2) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Métodos de Pago</h3>
+                    </div>
+                    <div style="padding: 20px;">
+                        <?php foreach ($payment_methods as $method): ?>
+                            <div class="payment-stat">
+                                <div>
+                                    <strong>
+                                        <?php
+                                            $icons = ['cash' => '💵 Efectivo', 'card' => '💳 Tarjeta', 'transfer' => '🏦 Transferencia'];
+                                            echo $icons[$method['method']] ?? $method['method'];
+                                        ?>
+                                    </strong>
+                                    <div style="color: var(--text-secondary); font-size: 14px;"><?= $method['count'] ?> transacciones</div>
+                                </div>
+                                <strong style="color: var(--success);">C$<?= number_format($method['total'], 2) ?></strong>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Payment Methods -->
+        <?php endif; ?>
+
+        <!-- INVENTORY REPORT -->
+        <?php if ($report_type === 'inventory'): ?>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--accent);">📊</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Valor Inventario</div>
+                        <div class="stat-value">C$<?= number_format($total_inventory_value, 2) ?></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--secondary);">📦</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Total Items</div>
+                        <div class="stat-value"><?= $total_items ?></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header">
-                    <h3>Métodos de Pago</h3>
-                </div>
-                <div style="padding: 20px;">
-                    <?php foreach ($payment_methods as $method): ?>
-                        <div class="payment-stat">
-                            <div>
-                                <strong>
-                                    <?php
-                                        $icons = ['cash' => '💵 Efectivo', 'card' => '💳 Tarjeta', 'transfer' => '🏦 Transferencia'];
-                                        echo $icons[$method['method']];
-                                    ?>
-                                </strong>
-                                <div style="color: var(--text-secondary); font-size: 14px;"><?= $method['count'] ?> transacciones</div>
-                            </div>
-                            <strong style="color: var(--success);">C$<?= number_format($method['total'], 2) ?></strong>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Low Stock Alert -->
-        <?php if (!empty($low_stock)): ?>
-            <div class="card">
-                <div class="card-header" style="background: var(--danger); color: white;">
-                    <h3>⚠️ Productos con Stock Bajo</h3>
+                    <h3>Estado del Inventario</h3>
+                    <button onclick="window.print()" class="btn btn-secondary btn-sm">🖨️ Imprimir</button>
                 </div>
                 <div class="table-responsive">
                     <table class="table">
                         <thead>
                             <tr>
                                 <th>Producto</th>
-                                <th>Stock Actual</th>
-                                <th>Precio</th>
+                                <th>Categoría</th>
+                                <th>Precio Unit.</th>
+                                <th>Stock</th>
+                                <th>Valor Total</th>
+                                <th>Estado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($low_stock as $product): ?>
+                            <?php foreach ($inventory as $item): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($product['name']) ?></td>
-                                    <td><span class="badge badge-danger"><?= $product['stock'] ?> unidades</span></td>
-                                    <td>C$<?= number_format($product['price'], 2) ?></td>
+                                    <td><?= htmlspecialchars($item['name']) ?></td>
+                                    <td><?= htmlspecialchars($item['category_name'] ?? 'Sin Categoría') ?></td>
+                                    <td>C$<?= number_format($item['price'], 2) ?></td>
+                                    <td>
+                                        <?php if ($item['stock'] < 10): ?>
+                                            <span class="badge badge-danger"><?= $item['stock'] ?></span>
+                                        <?php else: ?>
+                                            <span class="badge badge-success"><?= $item['stock'] ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>C$<?= number_format($item['total_value'], 2) ?></td>
+                                    <td>
+                                        <?php if ($item['stock'] <= 0): ?>
+                                            <span style="color: var(--danger);">Agotado</span>
+                                        <?php elseif ($item['stock'] < 10): ?>
+                                            <span style="color: var(--warning);">Bajo</span>
+                                        <?php else: ?>
+                                            <span style="color: var(--success);">Normal</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -241,10 +286,85 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
                 </div>
             </div>
         <?php endif; ?>
+
+        <!-- WAITERS REPORT -->
+        <?php if ($report_type === 'waiters'): ?>
+            <div class="card">
+                <div class="card-header">
+                    <h3>Desempeño de Meseros</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Mesero</th>
+                                <th>Pedidos Atendidos</th>
+                                <th>Ventas Generadas</th>
+                                <th>Promedio por Pedido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($waiters_stats)): ?>
+                                <tr><td colspan="4" style="text-align:center;">No hay datos para el periodo seleccionado</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($waiters_stats as $waiter): ?>
+                                    <tr>
+                                        <td>
+                                            <div style="display:flex; align-items:center; gap:10px;">
+                                                <div class="user-avatar" style="width:30px; height:30px; font-size:14px;">
+                                                    <?= strtoupper(substr($waiter['name'], 0, 1)) ?>
+                                                </div>
+                                                <?= htmlspecialchars($waiter['name']) ?>
+                                            </div>
+                                        </td>
+                                        <td><?= $waiter['total_orders'] ?></td>
+                                        <td>C$<?= number_format($waiter['total_sales'], 2) ?></td>
+                                        <td>
+                                            <?php 
+                                            $avg = $waiter['total_orders'] > 0 ? $waiter['total_sales'] / $waiter['total_orders'] : 0;
+                                            echo 'C$' . number_format($avg, 2);
+                                            ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
+
     </main>
 </div>
 
 <style>
+.report-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -288,7 +408,6 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     gap: 20px;
-    margin-top: 30px;
 }
 
 .payment-stat {
@@ -300,27 +419,18 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
     border-radius: 8px;
     margin-bottom: 10px;
 }
-    margin-bottom: 10px;
-}
 
 @media print {
-    .sidebar, .no-print, .btn, form {
+    .sidebar, .no-print, .report-tabs {
         display: none !important;
     }
     .main-content {
         margin-left: 0 !important;
         padding: 0 !important;
     }
-    .dashboard-wrapper {
-        display: block !important;
-    }
     .card {
         box-shadow: none !important;
         border: 1px solid #ddd !important;
-    }
-    body {
-        background: white !important;
-        color: black !important;
     }
 }
 </style>

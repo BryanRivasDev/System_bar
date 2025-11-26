@@ -13,6 +13,25 @@ if ($_SESSION['role_id'] != 1) {
     exit();
 }
 
+// Ensure settings table exists (Self-healing)
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        setting_key VARCHAR(50) NOT NULL UNIQUE,
+        setting_value TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB");
+
+    // Ensure default IVA setting
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = 'iva_percentage'");
+    $stmt->execute();
+    if ($stmt->fetchColumn() == 0) {
+        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES ('iva_percentage', '0')");
+    }
+} catch (Exception $e) {
+    // Silent fail or log if needed
+}
+
 $success_msg = '';
 $error_msg = '';
 
@@ -142,6 +161,17 @@ if (isset($_POST['reset_db'])) {
         $error_msg = 'Credenciales de Super Admin incorrectas. No se realizaron cambios.';
     }
 }
+
+// Handle IVA Update
+if (isset($_POST['update_iva'])) {
+    $iva_percentage = $_POST['iva_percentage'];
+    
+    // Update or insert setting
+    $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('iva_percentage', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    $stmt->execute([$iva_percentage, $iva_percentage]);
+    
+    $success_msg = 'Configuración de IVA actualizada correctamente.';
+}
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -204,6 +234,31 @@ if (isset($_POST['reset_db'])) {
                     <a href="menu_init.php" class="btn btn-success btn-block">
                         <span>📝</span> Ingresar Menú Masivo
                     </a>
+                </div>
+            </div>
+
+            <!-- VAT Configuration Section -->
+            <div class="card settings-card">
+                <div class="card-header">
+                    <h3>💰 Configuración de Facturación</h3>
+                </div>
+                <div class="card-body">
+                    <p>Define el porcentaje de IVA que se aplicará a las facturas.</p>
+                    <?php
+                    // Get current IVA
+                    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'iva_percentage'");
+                    $stmt->execute();
+                    $current_iva = $stmt->fetchColumn() ?: 0;
+                    ?>
+                    <form method="POST">
+                        <div class="form-group">
+                            <label>Porcentaje de IVA (%)</label>
+                            <input type="number" name="iva_percentage" class="form-input" value="<?= $current_iva ?>" min="0" max="100" step="0.01" required>
+                        </div>
+                        <button type="submit" name="update_iva" class="btn btn-primary btn-block">
+                            💾 Guardar Configuración
+                        </button>
+                    </form>
                 </div>
             </div>
             

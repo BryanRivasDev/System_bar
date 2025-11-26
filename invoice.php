@@ -63,6 +63,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
         </tr>";
     }
     
+    $subtotal_val = number_format($invoice['subtotal'] ?? $invoice['total'], 2);
+    $message .= "
+        <tr>
+            <td colspan='3' align='right'><strong>Subtotal</strong></td>
+            <td>C$ {$subtotal_val}</td>
+        </tr>";
+
+    if (!empty($invoice['iva_amount']) && $invoice['iva_amount'] > 0) {
+        $iva_val = number_format($invoice['iva_amount'], 2);
+        $message .= "
+        <tr>
+            <td colspan='3' align='right'><strong>IVA ({$invoice['iva_percentage']}%)</strong></td>
+            <td>C$ {$iva_val}</td>
+        </tr>";
+    }
+
     $total = number_format($invoice['total'], 2);
     $message .= "
         <tr style='background-color: #333; color: white;'>
@@ -175,11 +191,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
         .email-form.active {
             display: block;
         }
+        
+        /* Thermal Printer Styles (80mm) */
         @media print {
-            .dashboard-wrapper { display: block; }
-            .sidebar, .actions-bar, .email-form, .btn-secondary { display: none !important; }
-            .invoice-wrapper { box-shadow: none; margin: 0; padding: 0; }
-            body { background: white; }
+            @page {
+                size: 80mm auto; /* Width 80mm, Height Auto */
+                margin: 0;
+            }
+            body {
+                width: 80mm;
+                margin: 0;
+                padding: 5px;
+                background: white;
+                font-family: 'Courier New', monospace; /* Monospace looks better on receipts */
+                font-size: 12px;
+                color: black;
+            }
+            .dashboard-wrapper { 
+                display: block; 
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            .sidebar, .actions-bar, .email-form, .btn-secondary, header, footer { 
+                display: none !important; 
+            }
+            .invoice-wrapper { 
+                box-shadow: none; 
+                margin: 0; 
+                padding: 0; 
+                width: 100%;
+                border-radius: 0;
+            }
+            .invoice-header {
+                margin-bottom: 10px;
+                padding-bottom: 10px;
+                border-bottom: 1px dashed black;
+            }
+            .invoice-header h1 {
+                font-size: 18px;
+                color: black;
+                margin-bottom: 5px;
+            }
+            .invoice-header p {
+                font-size: 12px;
+                margin: 0;
+            }
+            .invoice-info {
+                display: block;
+                background: none;
+                padding: 0;
+                margin-bottom: 10px;
+                border-radius: 0;
+            }
+            .info-group {
+                margin-bottom: 5px;
+                display: flex;
+                justify-content: space-between;
+            }
+            .info-group label {
+                display: inline;
+                color: black;
+                font-size: 12px;
+            }
+            .info-group div {
+                display: inline;
+                font-weight: normal;
+                color: black;
+                font-size: 12px;
+            }
+            .invoice-table {
+                margin-bottom: 10px;
+                font-size: 12px;
+            }
+            .invoice-table th {
+                background: none;
+                color: black;
+                padding: 5px 0;
+                border-bottom: 1px dashed black;
+                font-size: 12px;
+            }
+            .invoice-table td {
+                padding: 5px 0;
+                border-bottom: none;
+                color: black;
+            }
+            .total-row td {
+                background: none;
+                color: black;
+                font-weight: bold;
+                font-size: 14px;
+                border-top: 1px dashed black;
+                padding-top: 5px;
+            }
+            /* Hide non-essential columns for receipt if needed, but let's keep them small */
         }
     </style>
 </head>
@@ -255,6 +360,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
                         <td>C$ <?= number_format($item['price'] * $item['quantity'], 2) ?></td>
                     </tr>
                     <?php endforeach; ?>
+                    <tr class="total-row" style="border-top: 2px solid #e2e8f0;">
+                        <td colspan="3" style="text-align: right; background: white; color: #64748b; font-weight: 600;">Subtotal</td>
+                        <td style="background: white; color: #334155;">C$ <?= number_format($invoice['subtotal'] ?? $invoice['total'], 2) ?></td>
+                    </tr>
+                    <?php if (!empty($invoice['iva_amount']) && $invoice['iva_amount'] > 0): ?>
+                    <tr class="total-row">
+                        <td colspan="3" style="text-align: right; background: white; color: #64748b; font-weight: 600;">IVA (<?= $invoice['iva_percentage'] ?>%)</td>
+                        <td style="background: white; color: #334155;">C$ <?= number_format($invoice['iva_amount'], 2) ?></td>
+                    </tr>
+                    <?php endif; ?>
                     <tr class="total-row">
                         <td colspan="3" style="text-align: right; border-radius: 0 0 0 8px;">TOTAL</td>
                         <td style="border-radius: 0 0 8px 0;">C$ <?= number_format($invoice['total'], 2) ?></td>

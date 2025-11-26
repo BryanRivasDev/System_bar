@@ -63,19 +63,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
         $error_msg = 'Debe abrir la caja antes de procesar pagos';
     } else {
         try {
+            // Auto-fix schema (Self-healing)
+            try {
+                $pdo->query("SELECT subtotal FROM invoices LIMIT 1");
+            } catch (Exception $e) {
+                $pdo->exec("ALTER TABLE invoices ADD COLUMN subtotal DECIMAL(10,2) AFTER table_name");
+                $pdo->exec("ALTER TABLE invoices ADD COLUMN iva_amount DECIMAL(10,2) AFTER subtotal");
+                $pdo->exec("ALTER TABLE invoices ADD COLUMN iva_percentage DECIMAL(5,2) DEFAULT 0 AFTER iva_amount");
+            }
+
             $pdo->beginTransaction();
             
+            // Get VAT percentage
+            $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'iva_percentage'");
+            $stmt->execute();
+            $iva_percentage = $stmt->fetchColumn() ?: 0;
+
+            // Calculate totals (Amount passed from form is usually just subtotal if not updated, 
+            // but let's assume the amount passed is the subtotal and we add tax on top, 
+            // OR we recalculate from order total to be safe)
+            
+            // Fetch order total to be sure
+            $stmt = $pdo->prepare("SELECT total FROM orders WHERE id = ?");
+            $stmt->execute([$order_id]);
+            $subtotal = $stmt->fetchColumn();
+            
+            $iva_amount = $subtotal * ($iva_percentage / 100);
+            $total_with_iva = $subtotal + $iva_amount;
+
             // Insert payment
             $stmt = $pdo->prepare('INSERT INTO payments (order_id, method, amount, cash_register_id, date_created) VALUES (?, ?, ?, ?, NOW())');
-            $stmt->execute([$order_id, $payment_method, $amount, $active_register['id']]);
+            $stmt->execute([$order_id, $payment_method, $total_with_iva, $active_register['id']]);
             
             // Update order status to completed
-            $stmt = $pdo->prepare('UPDATE orders SET status = "completed" WHERE id = ?');
-            $stmt->execute([$order_id]);
+            $stmt = $pdo->prepare('UPDATE orders SET status = "completed", total = ? WHERE id = ?');
+            $stmt->execute([$total_with_iva, $order_id]);
             
             // Update table status to available
             $stmt = $pdo->prepare('UPDATE tables t JOIN orders o ON t.id = o.table_id SET t.status = "available" WHERE o.id = ?');
             $stmt->execute([$order_id]);
+            
+            // Get table name for invoice
+            $stmt = $pdo->prepare("SELECT t.name FROM tables t JOIN orders o ON t.id = o.table_id WHERE o.id = ?");
+            $stmt->execute([$order_id]);
+            $table_name = $stmt->fetchColumn();
+
+            // Create Invoice Record
+            $stmt = $pdo->prepare('INSERT INTO invoices (order_id, table_name, subtotal, iva_amount, iva_percentage, total, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$order_id, $table_name, $subtotal, $iva_amount, $iva_percentage, $total_with_iva, $payment_method]);
             
             $pdo->commit();
             $success_msg = 'Pago procesado exitosamente';

@@ -38,12 +38,25 @@ if (isset($_GET['ajax'])) {
         $product_id = $_POST['product_id'];
         $quantity = $_POST['quantity'];
         
-        // Get product details
-        $stmt = $pdo->prepare('SELECT * FROM products WHERE id = ?');
+        // Get product details and effective stock
+        $stmt = $pdo->prepare('
+            SELECT p.*, 
+                   (p.stock - COALESCE((SELECT SUM(od.quantity) 
+                                        FROM order_details od 
+                                        JOIN orders o ON od.order_id = o.id 
+                                        WHERE od.product_id = p.id AND o.status = "pending"), 0)) as available_stock
+            FROM products p 
+            WHERE p.id = ?
+        ');
         $stmt->execute([$product_id]);
         $product = $stmt->fetch();
         
         if ($product) {
+            // Check stock
+            if ($quantity > $product['available_stock']) {
+                echo json_encode(['success' => false, 'message' => 'Stock insuficiente. Disponible: ' . $product['available_stock']]);
+                exit();
+            }
             // Check if table has an active order
             $stmt = $pdo->prepare('SELECT id FROM orders WHERE table_id = ? AND status = "pending" LIMIT 1');
             $stmt->execute([$table_id]);
@@ -113,8 +126,18 @@ if (isset($_GET['ajax'])) {
     }
 }
 
-// Get products
-$products = $pdo->query('SELECT * FROM products WHERE status = "active" AND stock > 0 ORDER BY category_id, name')->fetchAll();
+// Get products with effective stock (Physical - Pending)
+$products = $pdo->query('
+    SELECT p.*, 
+           (p.stock - COALESCE((SELECT SUM(od.quantity) 
+                                FROM order_details od 
+                                JOIN orders o ON od.order_id = o.id 
+                                WHERE od.product_id = p.id AND o.status = "pending"), 0)) as available_stock
+    FROM products p
+    WHERE p.status = "active"
+    HAVING available_stock > 0
+    ORDER BY p.category_id, p.name
+')->fetchAll();
 
 // Get categories
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
@@ -605,6 +628,8 @@ function quickAdd(productId, productName) {
     .then(data => {
         if (data.success) {
             updateOrder();
+        } else {
+            alert(data.message || 'Error al agregar producto');
         }
     });
 }

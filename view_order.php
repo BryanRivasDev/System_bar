@@ -61,16 +61,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
     } else {
         $payment_method = $_POST['payment_method'];
         
+        // Get VAT percentage
+        $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'iva_percentage'");
+        $stmt->execute();
+        $iva_percentage = $stmt->fetchColumn() ?: 0;
+
+        // Calculate totals
+        $subtotal = $order['total'];
+        $iva_amount = $subtotal * ($iva_percentage / 100);
+        $total_with_iva = $subtotal + $iva_amount;
+        
         // Create invoices table if not exists (DDL causes implicit commit, so do it before transaction)
         $pdo->exec("CREATE TABLE IF NOT EXISTS invoices (
             id INT AUTO_INCREMENT PRIMARY KEY,
             order_id INT NOT NULL,
             table_name VARCHAR(50),
+            subtotal DECIMAL(10,2),
+            iva_amount DECIMAL(10,2),
+            iva_percentage DECIMAL(5,2),
             total DECIMAL(10,2),
             payment_method VARCHAR(20),
             date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (order_id) REFERENCES orders(id)
         )");
+
+        // Auto-fix schema (Self-healing)
+        try {
+            $pdo->query("SELECT subtotal FROM invoices LIMIT 1");
+        } catch (Exception $e) {
+            $pdo->exec("ALTER TABLE invoices ADD COLUMN subtotal DECIMAL(10,2) AFTER table_name");
+            $pdo->exec("ALTER TABLE invoices ADD COLUMN iva_amount DECIMAL(10,2) AFTER subtotal");
+            $pdo->exec("ALTER TABLE invoices ADD COLUMN iva_percentage DECIMAL(5,2) DEFAULT 0 AFTER iva_amount");
+        }
 
         $pdo->beginTransaction();
         
@@ -82,21 +104,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
                 $stmt->execute([$item['quantity'], $item['product_id']]);
             }
             
-            // Create payment
+            // Create payment (Record the total amount PAID, which includes VAT)
             $stmt = $pdo->prepare('INSERT INTO payments (order_id, amount, method, cash_register_id) VALUES (?, ?, ?, ?)');
-            $stmt->execute([$order['id'], $order['total'], $payment_method, $active_register['id']]);
+            $stmt->execute([$order['id'], $total_with_iva, $payment_method, $active_register['id']]);
             
-            // Close order
-            $stmt = $pdo->prepare('UPDATE orders SET status = "completed" WHERE id = ?');
-            $stmt->execute([$order['id']]);
+            // Close order (Update order total to reflect final price with VAT? Or keep original? 
+            // Usually order total is the sum of items. Payment is what was paid. 
+            // Let's update order total to match payment for consistency in simple reports, 
+            // or keep it as subtotal. For this system, updating total seems safer for existing reports)
+            $stmt = $pdo->prepare('UPDATE orders SET status = "completed", total = ? WHERE id = ?');
+            $stmt->execute([$total_with_iva, $order['id']]);
             
             // Free table
             $stmt = $pdo->prepare('UPDATE tables SET status = "available" WHERE id = ?');
             $stmt->execute([$table_id]);
             
             // Create Invoice Record
-            $stmt = $pdo->prepare('INSERT INTO invoices (order_id, table_name, total, payment_method) VALUES (?, ?, ?, ?)');
-            $stmt->execute([$order['id'], $table['name'], $order['total'], $payment_method]);
+            $stmt = $pdo->prepare('INSERT INTO invoices (order_id, table_name, subtotal, iva_amount, iva_percentage, total, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$order['id'], $table['name'], $subtotal, $iva_amount, $iva_percentage, $total_with_iva, $payment_method]);
             $invoice_id = $pdo->lastInsertId();
             
             $pdo->commit();
