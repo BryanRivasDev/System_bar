@@ -127,6 +127,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
             <li><a href="kitchen.php">👨‍🍳 Cocina</a></li>
             <li><a href="cash_register.php">💰 Caja</a></li>
             <li><a href="reports.php">📈 Reportes</a></li>
+            <li><a href="users.php">👥 Usuarios</a></li>
+            <li><a href="settings.php">⚙️ Configuración</a></li>
             <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>

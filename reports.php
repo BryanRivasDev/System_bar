@@ -70,6 +70,8 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
             <li><a href="kitchen.php">👨‍🍳 Cocina</a></li>
             <li><a href="cash_register.php">💰 Caja</a></li>
             <li><a href="reports.php" class="active">📈 Reportes</a></li>
+            <li><a href="users.php">👥 Usuarios</a></li>
+            <li><a href="settings.php">⚙️ Configuración</a></li>
             <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>
@@ -81,11 +83,11 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
         </div>
         
         <!-- Date Filter -->
-        <div class="card">
+        <div class="card no-print">
             <div class="card-header">
                 <h3>Filtrar por Fecha</h3>
             </div>
-            <form method="GET" style="padding: 20px; display: flex; gap: 15px; align-items: end;">
+            <form method="GET" style="padding: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
                 <div class="form-group">
                     <label>Fecha Inicio</label>
                     <input type="date" name="start_date" class="form-control" value="<?= $start_date ?>">
@@ -94,7 +96,14 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
                     <label>Fecha Fin</label>
                     <input type="date" name="end_date" class="form-control" value="<?= $end_date ?>">
                 </div>
-                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <div class="form-group">
+                    <label style="visibility: hidden;">Acciones</label>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                        <a href="report_print.php?start_date=<?= $start_date ?>&end_date=<?= $end_date ?>" target="_blank" class="btn btn-secondary"><span>🖨️</span> PDF</a>
+                        <a href="export_report.php?start_date=<?= $start_date ?>&end_date=<?= $end_date ?>" class="btn btn-success"><span>📊</span> Excel</a>
+                    </div>
+                </div>
             </form>
         </div>
         
@@ -290,6 +299,29 @@ $low_stock = $pdo->query('SELECT * FROM products WHERE stock < 10 AND status = "
     background: var(--bg-secondary);
     border-radius: 8px;
     margin-bottom: 10px;
+}
+    margin-bottom: 10px;
+}
+
+@media print {
+    .sidebar, .no-print, .btn, form {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    .dashboard-wrapper {
+        display: block !important;
+    }
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
+    body {
+        background: white !important;
+        color: black !important;
+    }
 }
 </style>
 

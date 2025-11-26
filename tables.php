@@ -47,11 +47,13 @@ $tables = $stmt->fetchAll();
             <li><a href="kitchen.php">👨‍🍳 Cocina</a></li>
             <li><a href="cash_register.php">💰 Caja</a></li>
             <li><a href="reports.php">📈 Reportes</a></li>
+            <li><a href="users.php">👥 Usuarios</a></li>
+            <li><a href="settings.php">⚙️ Configuración</a></li>
             <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>
     <?php endif; ?>
-    
+
     <main class="main-content" style="<?= $_SESSION['role_id'] == 2 ? 'margin-left: 0;' : '' ?>">
         <?php if ($_SESSION['role_id'] == 2): ?>
         <!-- Waiter navigation -->
@@ -60,12 +62,11 @@ $tables = $stmt->fetchAll();
                 <h2>🍹 Bar System - Mesero</h2>
             </div>
             <div class="waiter-nav-buttons">
-                <a href="tables.php" class="nav-btn active">🪑 Mesas</a>
-                <a href="logout.php" class="nav-btn logout-btn">🚪 Cerrar Sesión</a>
+                <a href="tables.php" class="nav-btn active"><span>🪑</span> Mesas</a>
+                <a href="logout.php" class="nav-btn logout-btn"><span>🚪</span> Cerrar Sesión</a>
             </div>
         </div>
         <?php endif; ?>
-
         <div class="page-header">
             <h1>Gestión de Mesas</h1>
             <p>Vista y estado de las mesas del bar</p>

@@ -121,6 +121,7 @@ $roles = $pdo->query('SELECT * FROM roles ORDER BY name')->fetchAll();
             <li><a href="cash_register.php">💰 Caja</a></li>
             <li><a href="reports.php">📈 Reportes</a></li>
             <li><a href="users.php" class="active">👥 Usuarios</a></li>
+            <li><a href="settings.php">⚙️ Configuración</a></li>
             <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>
@@ -224,7 +225,12 @@ $roles = $pdo->query('SELECT * FROM roles ORDER BY name')->fetchAll();
                         <?php foreach ($users as $user): ?>
                             <tr>
                                 <td><?= $user['id'] ?></td>
-                                <td><?= htmlspecialchars($user['name']) ?></td>
+                                <td>
+                                    <?= htmlspecialchars($user['name']) ?>
+                                    <?php if (isset($user['is_super_admin']) && $user['is_super_admin'] == 1): ?>
+                                        <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-left: 8px; font-size: 10px; padding: 3px 8px;">⭐ SUPER ADMIN</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= htmlspecialchars($user['username']) ?></td>
                                 <td><?= htmlspecialchars($user['email']) ?></td>
                                 <td>
@@ -238,16 +244,20 @@ $roles = $pdo->query('SELECT * FROM roles ORDER BY name')->fetchAll();
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary" onclick="editUser(<?= htmlspecialchars(json_encode($user)) ?>)">
-                                        Editar
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" onclick="resetPassword(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username']) ?>')">
-                                        Reset Pass
-                                    </button>
-                                    <?php if ($user['id'] != $_SESSION['user_id']): ?>
-                                        <button class="btn btn-sm btn-danger" onclick="deactivateUser(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username']) ?>')">
-                                            Desactivar
+                                    <?php if (isset($user['is_super_admin']) && $user['is_super_admin'] == 1): ?>
+                                        <span class="badge badge-secondary" style="opacity: 0.6;">🔒 Protegido</span>
+                                    <?php else: ?>
+                                        <button class="btn btn-sm btn-primary" onclick="editUser(<?= htmlspecialchars(json_encode($user)) ?>)">
+                                            Editar
                                         </button>
+                                        <button class="btn btn-sm btn-secondary" onclick="resetPassword(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username']) ?>')">
+                                            Reset Pass
+                                        </button>
+                                        <?php if ($user['id'] != $_SESSION['user_id']): ?>
+                                            <button class="btn btn-sm btn-danger" onclick="deactivateUser(<?= $user['id'] ?>, '<?= htmlspecialchars($user['username']) ?>')">
+                                                Desactivar
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -525,6 +535,17 @@ $roles = $pdo->query('SELECT * FROM roles ORDER BY name')->fetchAll();
 
 .modal form {
     padding: 20px;
+}
+
+.table td {
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.table td:nth-child(2),
+.table td:nth-child(4) {
+    white-space: normal;
+    max-width: 200px;
 }
 </style>
 

@@ -48,20 +48,21 @@ $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
         </div>
         <ul class="sidebar-menu">
             <li><a href="dashboard.php">📊 Dashboard</a></li>
-            <li><a href="products.php" class="active">📦 Productos</a></li>
+            <li><a href="products.php" class="active">📦 Inventario</a></li>
             <li><a href="tables.php">🪑 Mesas</a></li>
             <li><a href="pos.php">💳 POS</a></li>
             <li><a href="kitchen.php">👨‍🍳 Cocina</a></li>
             <li><a href="cash_register.php">💰 Caja</a></li>
             <li><a href="reports.php">📈 Reportes</a></li>
             <li><a href="users.php">👥 Usuarios</a></li>
+            <li><a href="settings.php">⚙️ Configuración</a></li>
             <li><a href="logout.php">🚪 Cerrar Sesión</a></li>
         </ul>
     </aside>
     
     <main class="main-content">
         <div class="page-header">
-            <h1>Gestión de Productos</h1>
+            <h1>Gestión de Inventario</h1>
             <p>Administra el inventario de productos</p>
         </div>
         
@@ -74,52 +75,14 @@ $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
             </div>
         <?php endif; ?>
         
-        <div class="card">
-            <div class="card-header">
-                <h3>Nuevo Producto</h3>
-            </div>
-            <form method="POST" action="" class="form-grid">
-                <input type="hidden" name="action" value="add">
-                
-                <div class="form-group">
-                    <label>Código</label>
-                    <input type="text" name="code" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>Nombre</label>
-                    <input type="text" name="name" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>Precio</label>
-                    <input type="number" step="0.01" name="price" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>Stock</label>
-                    <input type="number" name="stock" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>Categoría</label>
-                    <select name="category_id" class="form-control">
-                        <option value="">Sin categoría</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary">Agregar Producto</button>
-                </div>
-            </form>
-        </div>
+
         
-        <div class="card" style="margin-top: 30px;">
-            <div class="card-header">
-                <h3>Lista de Productos</h3>
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Lista de Inventario</h3>
+                <div style="flex: 1; max-width: 400px; margin-left: 20px;">
+                    <input type="text" id="searchInput" class="form-control" placeholder="🔍 Buscar por código, nombre o categoría..." style="margin: 0;">
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table">
@@ -182,5 +145,25 @@ $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
 .alert {padding: 15px; border-radius: 8px; margin-bottom: 20px;}
 .alert-success {background: #d1fae5; color: #065f46; border-left: 4px solid #10b981;}
 </style>
+
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const tableRows = document.querySelectorAll('.table tbody tr');
+    
+    tableRows.forEach(row => {
+        const code = row.cells[0].textContent.toLowerCase();
+        const name = row.cells[1].textContent.toLowerCase();
+        const category = row.cells[2].textContent.toLowerCase();
+        
+        if (code.includes(searchTerm) || name.includes(searchTerm) || category.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+</script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
