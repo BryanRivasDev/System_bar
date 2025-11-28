@@ -100,6 +100,11 @@ if ($active_register) {
 $stmt = $pdo->prepare('SELECT cr.*, u.name as user_name FROM cash_register cr JOIN users u ON cr.user_id = u.id ORDER BY cr.date_created DESC LIMIT 20');
 $stmt->execute();
 $register_history = $stmt->fetchAll();
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -124,8 +129,19 @@ $register_history = $stmt->fetchAll();
     
     <main class="main-content">
         <div class="page-header">
-            <h1>Gestión de Caja</h1>
-            <p>Apertura y cierre de caja</p>
+            <div>
+                <h1>Gestión de Caja</h1>
+                <p>Apertura y cierre de caja</p>
+            </div>
+            <div class="user-profile-header">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
+                </div>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
+                </div>
+            </div>
         </div>
         
         <?php if (isset($_GET['success'])): ?>

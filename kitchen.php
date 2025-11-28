@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Check if user has kitchen role
-if ($_SESSION['role_id'] != 4 && $_SESSION['role_id'] != 1) {
+if ($_SESSION['role_id'] != 4 && $_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 5) {
     header('Location: dashboard.php');
     exit();
 }
@@ -36,11 +36,16 @@ $stmt = $pdo->query('
     ORDER BY o.date_created ASC
 ');
 $pending_orders = $stmt->fetchAll();
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
 <div class="dashboard-wrapper">
-    <?php if ($_SESSION['role_id'] == 1): ?>
+    <?php if ($_SESSION['role_id'] == 1 || $_SESSION['role_id'] == 5): ?>
     <aside class="sidebar">
         <div class="sidebar-header">
             <h2>🍹 Bar System</h2>
@@ -66,18 +71,14 @@ $pending_orders = $stmt->fetchAll();
                 <h1>Vista de Cocina</h1>
                 <p>Pedidos pendientes de preparación</p>
             </div>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <div class="user-profile-header" style="margin-right: 20px;">
-                    <div class="user-avatar">
-                        <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
-                    </div>
-                    <div class="user-details">
-                        <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
-                        <span class="user-role">Cocina</span>
-                    </div>
+            <div class="user-profile-header" style="margin-right: 20px;">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
                 </div>
-                <button onclick="location.reload()" class="btn btn-primary">🔄 Actualizar</button>
-                <a href="logout.php" class="btn btn-danger">🚪 Cerrar Sesión</a>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
+                </div>
             </div>
         </div>
         

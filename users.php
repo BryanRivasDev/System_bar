@@ -7,8 +7,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Only admin can access
-if ($_SESSION['role_id'] != 1) {
+// Only admin (1) or superadmin (5) can access
+if ($_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 5) {
     header('Location: dashboard.php');
     exit();
 }
@@ -113,6 +113,11 @@ $users = $stmt->fetchAll();
 
 // Get all roles
 $roles = $pdo->query('SELECT * FROM roles ORDER BY name')->fetchAll();
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -137,8 +142,19 @@ $roles = $pdo->query('SELECT * FROM roles ORDER BY name')->fetchAll();
     
     <main class="main-content">
         <div class="page-header">
-            <h1>Gestión de Usuarios</h1>
-            <p>Administrar usuarios y roles del sistema</p>
+            <div>
+                <h1>Gestión de Usuarios</h1>
+                <p>Administrar usuarios y roles del sistema</p>
+            </div>
+            <div class="user-profile-header">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
+                </div>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
+                </div>
+            </div>
         </div>
         
         <?php if (isset($success)): ?>

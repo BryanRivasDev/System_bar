@@ -170,6 +170,11 @@ $today_stats = $pdo->prepare("
 ");
 $today_stats->execute($params);
 $today_stats = $today_stats->fetch();
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -197,7 +202,7 @@ $today_stats = $today_stats->fetch();
                 </div>
                 <div class="user-details">
                     <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
-                    <span class="user-role">Cajero</span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
                 </div>
             </div>
         </div>

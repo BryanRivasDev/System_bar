@@ -72,7 +72,12 @@ if ($report_type === 'sales') {
 
 } elseif ($report_type === 'waiters') {
     // Waiters report logic (New)
-    $stmt = $pdo->prepare('
+    // Fetch all waiters for the dropdown
+    $waiters_list = $pdo->query('SELECT id, name FROM users WHERE role_id = 2 ORDER BY name')->fetchAll();
+    
+    $waiter_id = $_GET['waiter_id'] ?? 'all';
+    
+    $sql = '
         SELECT u.name, 
                COUNT(o.id) as total_orders, 
                COALESCE(SUM(o.total), 0) as total_sales
@@ -80,11 +85,20 @@ if ($report_type === 'sales') {
         LEFT JOIN orders o ON u.id = o.user_id 
             AND o.status = "completed" 
             AND DATE(o.date_created) BETWEEN ? AND ?
-        WHERE u.role_id = 2 -- Waiter role
-        GROUP BY u.id
-        ORDER BY total_sales DESC
-    ');
-    $stmt->execute([$start_date, $end_date]);
+        WHERE u.role_id = 2
+    ';
+    
+    $params = [$start_date, $end_date];
+    
+    if ($waiter_id !== 'all' && is_numeric($waiter_id)) {
+        $sql .= ' AND u.id = ?';
+        $params[] = $waiter_id;
+    }
+    
+    $sql .= ' GROUP BY u.id ORDER BY total_sales DESC';
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $waiters_stats = $stmt->fetchAll();
 }
 
@@ -111,9 +125,21 @@ if ($report_type === 'sales') {
     </aside>
     
     <main class="main-content">
-        <div class="page-header">
+        <div class="page-header no-print">
             <h1>Reportes</h1>
             <p>Análisis y estadísticas del sistema</p>
+        </div>
+
+        <!-- Print Header (Visible only on print) -->
+        <div class="print-header">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="font-size: 24px; margin: 0;">🍹 Bar System</h1>
+                <p style="margin: 5px 0; font-size: 14px;">Reporte de <?= ucfirst($report_type) ?></p>
+                <p style="margin: 5px 0; font-size: 12px; color: #666;">Generado el: <?= date('d/m/Y H:i') ?></p>
+                <?php if ($report_type !== 'inventory'): ?>
+                    <p style="margin: 5px 0; font-size: 12px;">Período: <?= date('d/m/Y', strtotime($start_date)) ?> - <?= date('d/m/Y', strtotime($end_date)) ?></p>
+                <?php endif; ?>
+            </div>
         </div>
 
         <!-- Report Navigation Tabs -->
@@ -139,6 +165,20 @@ if ($report_type === 'sales') {
                     <label>Fecha Fin</label>
                     <input type="date" name="end_date" class="form-control" value="<?= $end_date ?>">
                 </div>
+
+                <?php if ($report_type === 'waiters' && isset($waiters_list)): ?>
+                <div class="form-group">
+                    <label>Mesero</label>
+                    <select name="waiter_id" class="form-control">
+                        <option value="all">Todos</option>
+                        <?php foreach ($waiters_list as $waiter): ?>
+                            <option value="<?= $waiter['id'] ?>" <?= (isset($_GET['waiter_id']) && $_GET['waiter_id'] == $waiter['id']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($waiter['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
                 <div class="form-group">
                     <label style="visibility: hidden;">Acciones</label>
                     <div style="display: flex; gap: 10px;">
@@ -235,6 +275,13 @@ if ($report_type === 'sales') {
                     <div class="stat-info">
                         <div class="stat-label">Total Items</div>
                         <div class="stat-value"><?= $total_items ?></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--primary);">🏷️</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Productos Únicos</div>
+                        <div class="stat-value"><?= count($inventory) ?></div>
                     </div>
                 </div>
             </div>
@@ -421,17 +468,117 @@ if ($report_type === 'sales') {
 }
 
 @media print {
-    .sidebar, .no-print, .report-tabs {
+    @page {
+        margin: 20mm;
+        size: auto;
+    }
+
+    body {
+        background: white !important;
+        color: black !important;
+        font-family: serif; /* Better for reading on paper */
+    }
+
+    .sidebar, 
+    .no-print, 
+    .report-tabs, 
+    .page-header, 
+    .btn,
+    .form-control,
+    .sidebar-menu,
+    .user-profile-header {
         display: none !important;
     }
+
     .main-content {
         margin-left: 0 !important;
         padding: 0 !important;
+        width: 100% !important;
+        background: white !important;
     }
+
+    .dashboard-wrapper {
+        display: block !important;
+    }
+
     .card {
         box-shadow: none !important;
+        border: none !important; /* Remove card borders for cleaner look */
+        background: white !important;
+        margin-bottom: 20px !important;
+        padding: 0 !important;
+    }
+
+    .card-header {
+        border-bottom: 2px solid #000 !important;
+        padding: 10px 0 !important;
+        margin: 0 0 15px 0 !important;
+    }
+
+    .card-header h3 {
+        color: black !important;
+        font-size: 18px !important;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr) !important; /* Force 3 columns for stats */
+        gap: 15px !important;
+        margin-bottom: 20px !important;
+        page-break-inside: avoid;
+    }
+
+    .stat-card {
+        border: 1px solid #ddd !important;
+        background: white !important;
+        padding: 15px !important;
+    }
+
+    .stat-value {
+        color: black !important;
+        font-size: 20px !important;
+    }
+
+    .stat-label {
+        color: #333 !important;
+    }
+
+    .table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 12px !important;
+    }
+
+    .table th {
+        background: #f0f0f0 !important;
+        color: black !important;
+        border: 1px solid #000 !important;
+        font-weight: bold !important;
+    }
+
+    .table td {
+        color: black !important;
         border: 1px solid #ddd !important;
     }
+
+    .badge {
+        border: 1px solid #000 !important;
+        color: black !important;
+        background: white !important; /* Remove background colors for badges */
+    }
+
+    .print-header {
+        display: block !important;
+    }
+
+    /* Ensure charts or other complex elements don't break pages awkwardly */
+    .reports-grid, .card, .table-responsive {
+        page-break-inside: avoid;
+    }
+}
+
+/* Hide print header on screen */
+.print-header {
+    display: none;
 }
 </style>
 

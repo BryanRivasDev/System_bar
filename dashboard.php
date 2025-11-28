@@ -16,6 +16,16 @@ if ($_SESSION['role_id'] == 4) {
     // Waiter goes to tables
     header('Location: tables.php');
     exit();
+} elseif ($_SESSION['role_id'] == 3) {
+    // Cashier goes to cashier dashboard
+    header('Location: cashier_dashboard.php');
+    exit();
+}
+
+// Only Admin (1) and Superadmin (5) can access dashboard
+if ($_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 5) {
+    header('Location: index.php');
+    exit();
 }
 
 // Get active register (system-wide)
@@ -79,6 +89,11 @@ $pending_orders = $stmt->fetch()['pending'] ?? 0;
 // Active tables (always show active tables)
 $stmt = $pdo->query('SELECT COUNT(*) as active FROM tables WHERE status = "occupied"');
 $active_tables = $stmt->fetch()['active'] ?? 0;
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -114,7 +129,7 @@ $active_tables = $stmt->fetch()['active'] ?? 0;
                 </div>
                 <div class="user-details">
                     <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
-                    <span class="user-role"><?= $_SESSION['role_id'] == 1 ? 'Administrador' : 'Usuario' ?></span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
                 </div>
             </div>
         </div>

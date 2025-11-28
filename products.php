@@ -38,6 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get all products
 $products = $pdo->query('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id ORDER BY p.id DESC')->fetchAll();
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -62,8 +67,19 @@ $categories = $pdo->query('SELECT * FROM categories ORDER BY name')->fetchAll();
     
     <main class="main-content">
         <div class="page-header">
-            <h1>Gestión de Inventario</h1>
-            <p>Administra el inventario de productos</p>
+            <div>
+                <h1>Gestión de Inventario</h1>
+                <p>Administra el inventario de productos</p>
+            </div>
+            <div class="user-profile-header">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
+                </div>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
+                </div>
+            </div>
         </div>
         
         <?php if (isset($_GET['success'])): ?>

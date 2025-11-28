@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Allow access for Admin (1) and Waiter (2)
-if ($_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 2) {
+if ($_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 2 && $_SESSION['role_id'] != 5) {
     header('Location: dashboard.php');
     exit();
 }
@@ -138,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
 <?php include __DIR__ . '/includes/header.php'; ?>
 
 <div class="dashboard-wrapper">
-    <?php if ($_SESSION['role_id'] == 1): ?>
+    <?php if ($_SESSION['role_id'] == 1 || $_SESSION['role_id'] == 5): ?>
     <!-- Admin sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">

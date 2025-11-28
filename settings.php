@@ -7,8 +7,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Only Admin access
-if ($_SESSION['role_id'] != 1) {
+// Only Admin (1) or Superadmin (5) access
+if ($_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 5) {
     header('Location: dashboard.php');
     exit();
 }
@@ -37,7 +37,11 @@ $error_msg = '';
 
 // Handle Backup
 if (isset($_POST['backup'])) {
-    $tables = [];
+    // Security check: Only Superadmin (Role 5) can backup
+    if ($_SESSION['role_id'] != 5) {
+        $error_msg = 'Acceso denegado. Solo el Superadmin puede realizar respaldos.';
+    } else {
+        $tables = [];
     $stmt = $pdo->query('SHOW TABLES');
     while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
         $tables[] = $row[0];
@@ -106,10 +110,15 @@ if (isset($_POST['backup'])) {
         exit;
     }
 }
+}
 
 // Handle Reset
 if (isset($_POST['reset_db'])) {
-    $super_admin_username = $_POST['super_admin_username'];
+    // Security check: Only Superadmin (Role 5) can reset DB
+    if ($_SESSION['role_id'] != 5) {
+        $error_msg = 'Acceso denegado. Solo el Superadmin puede restablecer el sistema.';
+    } else {
+        $super_admin_username = $_POST['super_admin_username'];
     $super_admin_password = $_POST['super_admin_password'];
     
     // Verify Super Admin credentials
@@ -161,6 +170,7 @@ if (isset($_POST['reset_db'])) {
         $error_msg = 'Credenciales de Super Admin incorrectas. No se realizaron cambios.';
     }
 }
+}
 
 // Handle IVA Update
 if (isset($_POST['update_iva'])) {
@@ -172,6 +182,11 @@ if (isset($_POST['update_iva'])) {
     
     $success_msg = 'Configuración de IVA actualizada correctamente.';
 }
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
@@ -196,8 +211,19 @@ if (isset($_POST['update_iva'])) {
     
     <main class="main-content">
         <div class="page-header">
-            <h1>Configuración del Sistema</h1>
-            <p>Administración de base de datos y mantenimiento</p>
+            <div>
+                <h1>Configuración del Sistema</h1>
+                <p>Administración de base de datos y mantenimiento</p>
+            </div>
+            <div class="user-profile-header">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($_SESSION['name'], 0, 1)) ?>
+                </div>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
+                </div>
+            </div>
         </div>
         
         <?php if ($success_msg): ?>
@@ -210,6 +236,7 @@ if (isset($_POST['update_iva'])) {
         
         <div class="settings-grid">
             <!-- Backup Section -->
+            <?php if ($_SESSION['role_id'] == 5): ?>
             <div class="card settings-card">
                 <div class="card-header">
                     <h3>💾 Respaldo de Base de Datos</h3>
@@ -223,6 +250,7 @@ if (isset($_POST['update_iva'])) {
                     </form>
                 </div>
             </div>
+            <?php endif; ?>
 
             <!-- Menu Initialization Section -->
             <div class="card settings-card">
@@ -263,6 +291,7 @@ if (isset($_POST['update_iva'])) {
             </div>
             
             <!-- Reset Section -->
+            <?php if ($_SESSION['role_id'] == 5): ?>
             <div class="card settings-card danger-zone">
                 <div class="card-header danger-header">
                     <h3>⚠️ Restablecer Sistema</h3>
@@ -281,6 +310,7 @@ if (isset($_POST['update_iva'])) {
                     </button>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
     </main>
 </div>

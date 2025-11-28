@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Allow access for Admin (1) and Waiter (2)
-if ($_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 2) {
+if ($_SESSION['role_id'] != 1 && $_SESSION['role_id'] != 2 && $_SESSION['role_id'] != 5) {
     header('Location: dashboard.php');
     exit();
 }
@@ -29,11 +29,16 @@ $stmt = $pdo->query('
     ORDER BY t.name
 ');
 $tables = $stmt->fetchAll();
+
+// Get user's role name
+$stmt = $pdo->prepare('SELECT name FROM roles WHERE id = ?');
+$stmt->execute([$_SESSION['role_id']]);
+$user_role_name = $stmt->fetchColumn() ?: 'Usuario';
 ?>
 <?php include __DIR__ . '/includes/header.php'; ?>
 
 <div class="dashboard-wrapper">
-    <?php if ($_SESSION['role_id'] == 1): ?>
+    <?php if ($_SESSION['role_id'] == 1 || $_SESSION['role_id'] == 5): ?>
     <!-- Admin sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -66,7 +71,7 @@ $tables = $stmt->fetchAll();
                 <a href="tables.php" class="nav-btn active"><span>🪑</span> Mesas</a>
                 <div class="user-profile-nav">
                     <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
-                    <span class="user-role">Mesero</span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
                 </div>
                 <a href="logout.php" class="nav-btn logout-btn"><span>🚪</span> Cerrar Sesión</a>
             </div>
@@ -84,7 +89,7 @@ $tables = $stmt->fetchAll();
                 </div>
                 <div class="user-details">
                     <span class="user-name"><?= htmlspecialchars($_SESSION['name']) ?></span>
-                    <span class="user-role">Administrador</span>
+                    <span class="user-role"><?= htmlspecialchars($user_role_name) ?></span>
                 </div>
             </div>
             <?php endif; ?>

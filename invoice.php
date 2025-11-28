@@ -3,7 +3,7 @@ require_once __DIR__ . '/config/db.php';
 session_start();
 
 // Access control
-if (!isset($_SESSION['user_id']) || (!in_array($_SESSION['role_id'], [1, 2]))) {
+if (!isset($_SESSION['user_id']) || (!in_array($_SESSION['role_id'], [1, 2, 5]))) {
     header('Location: index.php');
     exit();
 }
